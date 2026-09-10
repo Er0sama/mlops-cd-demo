@@ -67,62 +67,69 @@ jobs:
 
   deploy-staging:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     environment:
       name: staging
 
     steps:
-      - name: Deploy staging
-        uses: appleboy/ssh-action@v1
+      - name: Login GHCR
+        uses: docker/login-action@v3
         with:
-          host: ${{ secrets.STAGING_HOST }}
-          username: ${{ secrets.STAGING_USER }}
-          key: ${{ secrets.STAGING_SSH_KEY }}
-          script: |
-            docker pull \
-              ghcr.io/${{ github.repository }}:${{ needs.build.outputs.version }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-            docker stop mlops-api || true
-            docker rm mlops-api || true
+      - name: Deploy staging
+        run: |
+          docker pull ghcr.io/${{ github.repository }}:${{ needs.build.outputs.version }}
 
-            docker run -d \
-              --name mlops-api \
-              --restart unless-stopped \
-              -p 5000:5000 \
-              ghcr.io/${{ github.repository }}:${{ needs.build.outputs.version }}
+          docker stop mlops-api-staging || true
+          docker rm mlops-api-staging || true
+
+          docker run -d \
+            --name mlops-api-staging \
+            --restart unless-stopped \
+            -p 5000:5000 \
+            ghcr.io/${{ github.repository }}:${{ needs.build.outputs.version }}
 
       - name: Smoke test
         run: |
           sleep 5
-          curl --fail http://${{ secrets.STAGING_HOST }}:5000/health
+          curl --fail http://localhost:5000/health
 
   deploy-production:
     needs:
       - build
       - deploy-staging
 
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     environment:
       name: production
 
     steps:
-      - name: Deploy production
-        uses: appleboy/ssh-action@v1
+      - name: Login GHCR
+        uses: docker/login-action@v3
         with:
-          host: ${{ secrets.PRODUCTION_HOST }}
-          username: ${{ secrets.PRODUCTION_USER }}
-          key: ${{ secrets.PRODUCTION_SSH_KEY }}
-          script: |
-            docker pull \
-              ghcr.io/${{ github.repository }}:${{ needs.build.outputs.version }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-            docker stop mlops-api || true
-            docker rm mlops-api || true
+      - name: Deploy production
+        run: |
+          docker pull ghcr.io/${{ github.repository }}:${{ needs.build.outputs.version }}
 
-            docker run -d \
-              --name mlops-api \
-              --restart unless-stopped \
-              -p 5000:5000 \
-              ghcr.io/${{ github.repository }}:${{ needs.build.outputs.version }}
+          docker stop mlops-api-prod || true
+          docker rm mlops-api-prod || true
+
+          docker run -d \
+            --name mlops-api-prod \
+            --restart unless-stopped \
+            -p 5001:5000 \
+            ghcr.io/${{ github.repository }}:${{ needs.build.outputs.version }}
+
+      - name: Verify production
+        run: |
+          sleep 5
+          curl --fail http://localhost:5001/health
