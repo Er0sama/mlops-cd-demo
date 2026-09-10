@@ -2,7 +2,7 @@ from flask import Flask, jsonify, request
 
 app = Flask(__name__)
 
-MODEL_VERSION = "1.0"
+MODEL_VERSION = "1.1"
 
 
 @app.route("/")
